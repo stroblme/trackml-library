@@ -1,10 +1,10 @@
 """TrackML scoring metric"""
 
-__authors__ = ['Sabrina Amrouche', 'David Rousseau', 'Moritz Kiehn',
-               'Ilija Vukotic']
+__authors__ = ["Sabrina Amrouche", "David Rousseau", "Moritz Kiehn", "Ilija Vukotic"]
 
 import numpy
 import pandas
+
 
 def _analyze_tracks(truth, submission):
     """Compute the majority particle, hit counts, and weight for each track.
@@ -23,14 +23,18 @@ def _analyze_tracks(truth, submission):
         major_nhits, and major_weight columns.
     """
     # true number of hits for each particle_id
-    particles_nhits = truth['particle_id'].value_counts(sort=False)
-    total_weight = truth['weight'].sum()
+    particles_nhits = truth["particle_id"].value_counts(sort=False)
+    total_weight = truth["weight"].sum()
     # combined event with minimal reconstructed and truth information
-    event = pandas.merge(truth[['hit_id', 'particle_id', 'weight']],
-                         submission[['hit_id', 'track_id']],
-                         on=['hit_id'], how='left', validate='one_to_one')
-    event.drop('hit_id', axis=1, inplace=True)
-    event.sort_values(by=['track_id', 'particle_id'], inplace=True)
+    event = pandas.merge(
+        truth[["hit_id", "particle_id", "weight"]],
+        submission[["hit_id", "track_id"]],
+        on=["hit_id"],
+        how="left",
+        validate="one_to_one",
+    )
+    event.drop("hit_id", axis=1, inplace=True)
+    event.sort_values(by=["track_id", "particle_id"], inplace=True)
 
     # ASSUMPTIONs: 0 <= track_id, 0 <= particle_id
 
@@ -56,9 +60,16 @@ def _analyze_tracks(truth, submission):
                 maj_nhits = cur_nhits
                 maj_weight = cur_weight
             # store values for this track
-            tracks.append((rec_track_id, rec_nhits, maj_particle_id,
-                particles_nhits[maj_particle_id], maj_nhits,
-                maj_weight / total_weight))
+            tracks.append(
+                (
+                    rec_track_id,
+                    rec_nhits,
+                    maj_particle_id,
+                    particles_nhits[maj_particle_id],
+                    maj_nhits,
+                    maj_weight / total_weight,
+                )
+            )
 
         # setup running values for next track (or first)
         if rec_track_id != hit.track_id:
@@ -98,13 +109,27 @@ def _analyze_tracks(truth, submission):
         maj_nhits = cur_nhits
         maj_weight = cur_weight
     # store values for the last track
-    tracks.append((rec_track_id, rec_nhits, maj_particle_id,
-        particles_nhits[maj_particle_id], maj_nhits, maj_weight / total_weight))
+    tracks.append(
+        (
+            rec_track_id,
+            rec_nhits,
+            maj_particle_id,
+            particles_nhits[maj_particle_id],
+            maj_nhits,
+            maj_weight / total_weight,
+        )
+    )
 
-    cols = ['track_id', 'nhits',
-            'major_particle_id', 'major_particle_nhits',
-            'major_nhits', 'major_weight']
+    cols = [
+        "track_id",
+        "nhits",
+        "major_particle_id",
+        "major_particle_nhits",
+        "major_nhits",
+        "major_weight",
+    ]
     return pandas.DataFrame.from_records(tracks, columns=cols)
+
 
 def score_event(truth, submission):
     """Compute the TrackML event score for a single event.
@@ -117,7 +142,9 @@ def score_event(truth, submission):
         Proposed hit/track association. Must have hit_id and track_id columns.
     """
     tracks = _analyze_tracks(truth, submission)
-    purity_rec = numpy.true_divide(tracks['major_nhits'], tracks['nhits'])
-    purity_maj = numpy.true_divide(tracks['major_nhits'], tracks['major_particle_nhits'])
+    purity_rec = numpy.true_divide(tracks["major_nhits"], tracks["nhits"])
+    purity_maj = numpy.true_divide(
+        tracks["major_nhits"], tracks["major_particle_nhits"]
+    )
     good_track = (0.5 < purity_rec) & (0.5 < purity_maj)
-    return tracks['major_weight'][good_track].sum()
+    return tracks["major_weight"][good_track].sum()
